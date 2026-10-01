@@ -1,8 +1,8 @@
-import { readFile, stat } from 'node:fs/promises'
+import { readFile, realpath, stat } from 'node:fs/promises'
 import { decodeBrowserUrl } from './browser-url'
 import { BROWSER_CSP } from './csp'
 import { contentTypeForPath } from './mime'
-import { resolveInsideRoot } from './path-security'
+import { isInsideRoot, resolveInsideRoot } from './path-security'
 import { isTrustedRequest } from './trust'
 import { sessionCwdOf, type HostContext } from './session-cwd'
 
@@ -28,17 +28,19 @@ function writeError(res: ResponseLike, status: number, code: string, message: st
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'content-length': Buffer.byteLength(body),
+    'cache-control': 'no-cache',
+    'x-content-type-options': 'nosniff',
   })
   res.end(body)
 }
 
 export function createHandler(ctx: HostContext, options?: BrowserRouteOptions) {
   const mediaLimit = options?.mediaLimit ?? DEFAULT_MEDIA_LIMIT
-  // Deployment-derived trusted authorities, sampled at boot (see webRuntime);
-  // empty in stripped-down hosts (tests) where loopback still passes.
-  const trustedHosts = ctx.webRuntime?.trustedHosts ?? []
 
   return async function handler(req: IncomingLike, res: ResponseLike): Promise<void> {
+    // Trusted authorities are read per-request, not sampled at boot, so a
+    // runtime change to `webRuntime.trustedHosts` takes effect immediately.
+    const trustedHosts = ctx.webRuntime?.trustedHosts ?? []
     if (!isTrustedRequest(req, trustedHosts)) {
       writeError(res, 403, 'forbidden', 'forbidden')
       return
@@ -63,13 +65,26 @@ export function createHandler(ctx: HostContext, options?: BrowserRouteOptions) {
         return
       }
 
-      let info
+      // Symlink-aware containment: `resolveInsideRoot` is lexical only, so a
+      // symlink inside the workspace could point at a file outside it (e.g.
+      // `/etc/passwd`). Resolve both the root and the target through
+      // `realpath` and re-check containment, so a link escaping the root is
+      // refused even when the lexical path looks clean.
+      let realRoot: string
+      let real: string
       try {
-        info = await stat(absolute)
+        realRoot = await realpath(root)
+        real = await realpath(absolute)
       } catch {
         writeError(res, 404, 'fs-error', 'not found')
         return
       }
+      if (!isInsideRoot(realRoot, real)) {
+        writeError(res, 403, 'fs-error', 'path escapes workspace root')
+        return
+      }
+
+      const info = await stat(real)
       if (!info.isFile()) {
         writeError(res, 403, 'fs-error', 'not a regular file')
         return
@@ -79,10 +94,10 @@ export function createHandler(ctx: HostContext, options?: BrowserRouteOptions) {
         return
       }
 
-      const body = await readFile(absolute)
+      const body = await readFile(real)
       res.writeHead(200, {
-        'content-type': contentTypeForPath(absolute),
-        'content-length': info.size,
+        'content-type': contentTypeForPath(real),
+        'content-length': body.length,
         'cache-control': 'no-cache',
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',

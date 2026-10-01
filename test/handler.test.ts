@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHandler } from '../src/handler'
@@ -142,5 +142,25 @@ describe('createHandler', () => {
     const res = fakeRes()
     await handler({ method: 'GET', url: '/browser-html/s1/index.html', headers: {} }, res)
     expect(res.captured.status).toBe(403)
+  })
+
+  it('returns 403 for a symlink escaping the workspace root', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'side-html-viewer-outside-'))
+    try {
+      writeFileSync(join(outside, 'secret.txt'), 'top secret')
+      symlinkSync(outside, join(root, 'link-out'))
+      const r = await run('GET', '/browser-html/s1/link-out/secret.txt')
+      expect(r.status).toBe(403)
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('serves a file through a symlink that stays inside the root', async () => {
+    writeFileSync(join(root, 'real.html'), '<html>real</html>')
+    symlinkSync(join(root, 'real.html'), join(root, 'alias.html'))
+    const r = await run('GET', '/browser-html/s1/alias.html')
+    expect(r.status).toBe(200)
+    expect(r.body).toEqual(Buffer.from('<html>real</html>'))
   })
 })

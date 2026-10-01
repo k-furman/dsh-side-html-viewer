@@ -13,11 +13,34 @@ ES modules, and same-origin `fetch`, instead of a static preview.
 - Strict security model:
   - Requests are gated to trusted origins (loopback / configured `trustedHosts`).
   - Paths are confined to the session workspace root (`..`, UNC, and drive
-    escapes are rejected).
+    escapes are rejected, and a symlink resolving outside the root is refused
+    via a `realpath` re-check).
   - Served with a restrictive CSP, `X-Content-Type-Options: nosniff`, and
     no-cache headers.
-  - Configurable media size limit (default 20 MiB).
+- Configurable media size limit (default 20 MiB).
+- A browser toolbar (back / forward / reload) above the frame; reload is also
+  bound to the framework's `refresh` command (Ctrl+R).
 - Registers a `html-browser` tab type in the sidebar-right pane.
+
+## Security model
+
+The plugin renders workspace HTML on the **GUI's own origin in an unsandboxed
+iframe**. This is a deliberate, accepted trade-off (see the design spec): it is
+what makes inline scripts, ES modules, same-origin `fetch`, and storage work.
+Consequently:
+
+- The `/browser-html` route is a **request-provenance fence, not
+  authentication**. Anything that can reach the loopback HTTP port passes; the
+  fence only rejects cross-site requests (DNS rebinding / confused deputy) via
+  `Host`, `Origin`, and Fetch Metadata checks.
+- Any HTML file in a session workspace can therefore reach the GUI origin and,
+  within it, read sibling files from **any** session's workspace (there is no
+  per-session isolation between requests), and — through the trusted route —
+  serve any regular file under a workspace root, not just `.html`. Treat HTML
+  in a workspace as code you trust to run on the host account.
+- External subresources (script/style/img/font/`fetch`) are blocked by CSP;
+  external **navigation** is not, so clicking an external link loads that site
+  in the iframe.
 
 ## Install
 
@@ -33,7 +56,7 @@ to see it rendered.
 ```bash
 npm install
 npm run build   # emits lib/index.js (host) + lib/client.js (client)
-npm test        # vitest, 65 tests
+npm test        # vitest
 ```
 
 The client bundle is built with `tsdown` as a CommonJS module wrapped in the

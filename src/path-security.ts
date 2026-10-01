@@ -1,7 +1,13 @@
 import { isAbsolute, relative, resolve } from 'node:path'
 
-/** Whether `target` sits at or below `root` (lexically, after `resolve`). */
-function isInside(root: string, target: string): boolean {
+/**
+ * Whether `target` sits at or below `root`, compared lexically.
+ *
+ * Both arguments must already be normalized the same way — `resolve` for a
+ * purely lexical check (see `resolveInsideRoot`), or `realpath` for a
+ * symlink-aware one (see the handler's second containment pass).
+ */
+export function isInsideRoot(root: string, target: string): boolean {
   const rel = relative(root, target)
   return !rel.startsWith('..') && !isAbsolute(rel)
 }
@@ -37,11 +43,11 @@ export function resolveInsideRoot(root: string, target: string): string | undefi
 
   const leading = target.startsWith('/')
   const asAbsolute = leading ? resolve(target) : undefined
-  const absoluteInRoot = asAbsolute !== undefined && isInside(rootResolved, asAbsolute)
+  const absoluteInRoot = asAbsolute !== undefined && isInsideRoot(rootResolved, asAbsolute)
 
   const resolved = absoluteInRoot
     ? asAbsolute
     : resolve(rootResolved, leading ? target.slice(1) : target)
 
-  return isInside(rootResolved, resolved) ? resolved : undefined
+  return isInsideRoot(rootResolved, resolved) ? resolved : undefined
 }

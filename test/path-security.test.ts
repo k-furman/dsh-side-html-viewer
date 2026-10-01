@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveInsideRoot } from '../src/path-security'
+import { isInsideRoot, resolveInsideRoot } from '../src/path-security'
 
 describe('resolveInsideRoot', () => {
   it('resolves a bare relative path inside the root', () => {
@@ -36,5 +36,17 @@ describe('resolveInsideRoot', () => {
     // root-relative path `etc/passwd`. Containment still holds: the result never
     // escapes the root.
     expect(resolveInsideRoot('/w', '/etc/passwd')).toBe('/w/etc/passwd')
+  })
+})
+
+describe('isInsideRoot', () => {
+  it('accepts a target at or below the root', () => {
+    expect(isInsideRoot('/w', '/w')).toBe(true)
+    expect(isInsideRoot('/w', '/w/sub/file.html')).toBe(true)
+  })
+
+  it('rejects a target above or beside the root', () => {
+    expect(isInsideRoot('/w', '/etc/passwd')).toBe(false)
+    expect(isInsideRoot('/w', '/w-evil')).toBe(false)
   })
 })

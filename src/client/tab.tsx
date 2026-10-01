@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { iframeSrcFor } from './iframe'
 import {
   BROWSER_TAB_ID,
@@ -12,6 +13,9 @@ export const inject = ['slots']
 interface TabInfo {
   tab: {
     contentId: string
+    actions: {
+      bindCommands(commands: { refresh?: () => void }): () => void
+    }
   }
 }
 
@@ -19,15 +23,99 @@ interface BodyProps {
   useTabInfo: () => TabInfo
 }
 
+interface ToolbarProps {
+  onBack: () => void
+  onForward: () => void
+  onReload: () => void
+}
+
+const BUTTON_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 28,
+  height: 28,
+  padding: 0,
+  margin: 0,
+  border: 'none',
+  background: 'transparent',
+  color: 'inherit',
+  fontSize: 16,
+  lineHeight: 1,
+  cursor: 'pointer',
+  borderRadius: 6,
+  opacity: 0.8,
+}
+
+const TOOLBAR_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 2,
+  padding: '4px 8px',
+  borderBottom: '1px solid rgba(128, 128, 128, 0.25)',
+  flexShrink: 0,
+}
+
+function BrowserToolbar({ onBack, onForward, onReload }: ToolbarProps) {
+  return (
+    <div style={TOOLBAR_STYLE} role="toolbar" aria-label="Browser navigation">
+      <button type="button" title="Back" aria-label="Back" style={BUTTON_STYLE} onClick={onBack}>
+        ←
+      </button>
+      <button type="button" title="Forward" aria-label="Forward" style={BUTTON_STYLE} onClick={onForward}>
+        →
+      </button>
+      <button type="button" title="Reload" aria-label="Reload" style={BUTTON_STYLE} onClick={onReload}>
+        ⟳
+      </button>
+    </div>
+  )
+}
+
 function BrowserTabBody(props: BodyProps) {
   const info = props.useTabInfo()
   const src = iframeSrcFor(info.tab.contentId)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // A browser "reload" reloads the frame's *current* location. `location.reload()`
+  // is a navigation, so it stays permitted even after the frame navigated to an
+  // external site (unlike `history`, which goes cross-origin-opaque).
+  const reload = () => {
+    try {
+      iframeRef.current?.contentWindow?.location.reload()
+    } catch {
+      // Cross-origin or detached frame: nothing to reload.
+    }
+  }
+
+  // Back/forward act on the frame's own session history. They only work while the
+  // frame is same-origin (the primary case); after an external navigation the
+  // `history` access throws and the buttons become no-ops.
+  const navigate = (fn: (history: History) => void) => {
+    try {
+      const win = iframeRef.current?.contentWindow
+      if (win) fn(win.history)
+    } catch {
+      // Ignore: cross-origin history is not scriptable.
+    }
+  }
+
+  useEffect(() => info.tab.actions.bindCommands({ refresh: reload }), [info.tab.actions])
+
   return (
-    <iframe
-      src={src}
-      title="side-html-viewer"
-      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+      <BrowserToolbar
+        onBack={() => navigate((h) => h.back())}
+        onForward={() => navigate((h) => h.forward())}
+        onReload={reload}
+      />
+      <iframe
+        ref={iframeRef}
+        src={src}
+        title="side-html-viewer"
+        style={{ width: '100%', height: '100%', border: 'none', display: 'block', flexGrow: 1 }}
+      />
+    </div>
   )
 }
 

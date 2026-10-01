@@ -18,12 +18,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/k-furman>/dsh-side-html-viewer.git"
+    "url": "git+https://github.com/k-furman/dsh-side-html-viewer.git"
   },
   "bugs": {
-    "url": "https://github.com/k-furman>/dsh-side-html-viewer/issues"
+    "url": "https://github.com/k-furman/dsh-side-html-viewer/issues"
   },
-  "homepage": "https://github.com/k-furman>/dsh-side-html-viewer#readme",
+  "homepage": "https://github.com/k-furman/dsh-side-html-viewer#readme",
   "engines": {
     "node": ">=20"
   },
