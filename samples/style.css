@@ -1,0 +1,14 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #f5f0e6;
+  color: #1a3c34;
+  margin: 2rem;
+}
+
+h1 {
+  color: #247bbf;
+}
+
+img {
+  margin: 0.5rem;
+}

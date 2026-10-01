@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Side HTML Viewer",
+    "description": "Renders HTML files from the Files sidebar in a real browser iframe with CSS, JS, ES modules, and local fetch."
+  }
+}
