@@ -4,6 +4,11 @@ A [DSH](https://github.com/deepseek-ai/dsh) plugin that renders HTML files from
 the Files sidebar in a **real browser iframe** — with working CSS, JavaScript,
 ES modules, and same-origin `fetch`, instead of a static preview.
 
+![DSH with index.html rendered in the right sidebar browser panel](dsh-html-browser-preview.png)
+
+An HTML landing page opened from the Files sidebar, rendered in the browser
+panel alongside the chat.
+
 ## Features
 
 - Serves `.html` / `.htm` files from a session's workspace root over the
